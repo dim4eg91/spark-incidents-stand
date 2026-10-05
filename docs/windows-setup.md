@@ -61,23 +61,35 @@ docker info --format '{{.OSType}}'
 
 ## Получи файлы и подготовь настройки
 
-Открой публичный репозиторий по ссылке из урока 1.2 на Stepik. Рядом в уроке
-есть ссылка на ZIP зафиксированной версии стенда. Скачай его и распакуй.
-Не скачивай текущую ветку `main`: её содержимое может измениться после выхода
-урока. Git для загрузки архива не нужен. Порядок работы с файлами описан в
-[files-and-notebooks.md](files-and-notebooks.md).
-Извлечённую папку можно переименовать в `spark_incidents_stand` и поместить в
-`D:\spark-course`. Ниже это только пример пути, не обязательное расположение.
+Проверь Git в PowerShell:
 
 ```powershell
-Set-Location 'D:\spark-course\spark_incidents_stand'
+git --version
+```
+
+Если команда не найдена, установи [Git for Windows](https://git-scm.com/install/windows)
+и открой новое окно PowerShell. GitHub-аккаунт для публичного репозитория не нужен.
+Открой [репозиторий стенда](https://github.com/dim4eg91/spark-incidents-stand)
+и выполни команды ниже. `D:` здесь только пример: если такого диска нет,
+выбери существующий диск с достаточным свободным местом и измени путь в первых
+двух строках.
+
+```powershell
+New-Item -ItemType Directory -Path 'D:\spark-course' -Force | Out-Null
+Set-Location 'D:\spark-course'
+git clone --branch course-2026-10 --single-branch https://github.com/dim4eg91/spark-incidents-stand.git spark_incidents_stand
+Set-Location '.\spark_incidents_stand'
+git branch --show-current
 Get-Location
 Get-ChildItem
 Test-Path .\compose.yaml
 ```
 
-Последняя команда должна вернуть `True`. В этой же папке находятся `.env.example`,
-`scripts`, `docker`, `data`, `workspace`. При другом пути подставь свой каталог.
+Ветка должна быть `course-2026-10`, а последняя команда должна вернуть `True`.
+В этой же папке находятся `.env.example`, `scripts`, `docker`, `data`,
+`workspace`. Не клонируй ветку `main`: для уроков закреплена
+`course-2026-10`. Порядок работы с файлами описан в
+[files-and-notebooks.md](files-and-notebooks.md).
 
 Создай `.env` только при его отсутствии:
 

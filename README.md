@@ -7,6 +7,7 @@
 ## Требования
 
 - Docker Desktop с Docker Compose v2;
+- Git for Windows;
 - предварительный ориентир: 16 ГБ RAM хоста, 8 ГБ для Docker, 4 CPU и 15 ГБ диска;
 - свободные локальные порты из `.env.example`.
 
@@ -17,12 +18,23 @@ Docker CPU и примерно 7,6 ГиБ RAM. Это проверенная к�
 
 ## Быстрый старт
 
-В уроке 1.2 на Stepik открой ссылку на этот публичный репозиторий. Рядом дана
-ссылка на ZIP зафиксированной версии стенда. Скачай именно этот архив, а не
-текущее состояние ветки `main`: файлы должны совпадать с notebook уроков.
-Git и аккаунт GitHub для прохождения курса не нужны. Распакуй архив и при желании
-переименуй извлечённую папку в `spark_incidents_stand`. Команды ниже выполняй
-из папки, где лежит `compose.yaml`, а не из окна просмотра архива.
+В уроке 1.2 на Stepik открой ссылку на этот публичный репозиторий. Установи
+[Git for Windows](https://git-scm.com/install/windows), если команда `git --version`
+не работает. В PowerShell 7 выбери диск с достаточным свободным местом. Ниже
+показан пример для `D:`; если его нет, замени `D:` на существующий диск:
+
+```powershell
+New-Item -ItemType Directory -Path 'D:\spark-course' -Force | Out-Null
+Set-Location 'D:\spark-course'
+git clone --branch course-2026-10 --single-branch https://github.com/dim4eg91/spark-incidents-stand.git spark_incidents_stand
+Set-Location '.\spark_incidents_stand'
+git branch --show-current
+```
+
+Последняя команда должна показать `course-2026-10`. Эта ветка закреплена
+за этой версией уроков; не клонируй меняющуюся ветку `main`. Аккаунт GitHub для
+скачивания публичного репозитория не нужен. Дальнейшие команды выполняй из
+папки с `compose.yaml`.
 Ноутбуки скачиваются из вложений соответствующих уроков отдельно и кладутся
 в `workspace/`. Подробности есть в [работе с файлами](docs/files-and-notebooks.md).
 
