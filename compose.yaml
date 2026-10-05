@@ -1,0 +1,230 @@
+name: spark-incidents-student-lab
+
+x-spark-environment: &spark-environment
+  SPARK_NO_DAEMONIZE: "1"
+  PYSPARK_PYTHON: /usr/bin/python3
+  AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-sparkstudent}
+  AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-sparkstudent123}
+
+x-spark-build: &spark-build
+  context: .
+  dockerfile: docker/spark/Dockerfile
+  target: spark-runtime
+  args:
+    SPARK_VERSION: ${SPARK_VERSION:-3.5.1}
+    HADOOP_AWS_VERSION: ${HADOOP_AWS_VERSION:-3.3.4}
+    AWS_SDK_BUNDLE_VERSION: ${AWS_SDK_BUNDLE_VERSION:-1.12.262}
+
+services:
+  spark-incidents-master:
+    build: *spark-build
+    image: spark-incidents/runtime:${SPARK_VERSION:-3.5.1}
+    hostname: spark-incidents-master
+    environment: *spark-environment
+    command:
+      - /opt/spark/bin/spark-class
+      - org.apache.spark.deploy.master.Master
+      - --host
+      - spark-incidents-master
+      - --port
+      - "7077"
+      - --webui-port
+      - "8080"
+    ports:
+      - "127.0.0.1:${SPARK_MASTER_UI_PORT:-18088}:8080"
+    volumes:
+      - ./data:/data:ro
+      - ./workspace:/workspace
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080 >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+    networks: [spark-incidents-net]
+
+  spark-incidents-worker-1:
+    build: *spark-build
+    image: spark-incidents/runtime:${SPARK_VERSION:-3.5.1}
+    hostname: spark-incidents-worker-1
+    depends_on:
+      spark-incidents-master:
+        condition: service_healthy
+    environment: *spark-environment
+    command:
+      - /opt/spark/bin/spark-class
+      - org.apache.spark.deploy.worker.Worker
+      - --cores
+      - "1"
+      - --memory
+      - 1536m
+      - --webui-port
+      - "8081"
+      - spark://spark-incidents-master:7077
+    ports:
+      - "127.0.0.1:${SPARK_WORKER_1_UI_PORT:-18089}:8081"
+    volumes:
+      - ./data:/data:ro
+      - ./workspace:/workspace
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8081 >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+    networks: [spark-incidents-net]
+
+  spark-incidents-worker-2:
+    build: *spark-build
+    image: spark-incidents/runtime:${SPARK_VERSION:-3.5.1}
+    hostname: spark-incidents-worker-2
+    depends_on:
+      spark-incidents-master:
+        condition: service_healthy
+    environment: *spark-environment
+    command:
+      - /opt/spark/bin/spark-class
+      - org.apache.spark.deploy.worker.Worker
+      - --cores
+      - "1"
+      - --memory
+      - 1536m
+      - --webui-port
+      - "8081"
+      - spark://spark-incidents-master:7077
+    ports:
+      - "127.0.0.1:${SPARK_WORKER_2_UI_PORT:-18090}:8081"
+    volumes:
+      - ./data:/data:ro
+      - ./workspace:/workspace
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8081 >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+    networks: [spark-incidents-net]
+
+  spark-incidents-jupyter:
+    build:
+      context: .
+      dockerfile: docker/spark/Dockerfile
+      target: jupyter-runtime
+      args:
+        SPARK_VERSION: ${SPARK_VERSION:-3.5.1}
+        HADOOP_AWS_VERSION: ${HADOOP_AWS_VERSION:-3.3.4}
+        AWS_SDK_BUNDLE_VERSION: ${AWS_SDK_BUNDLE_VERSION:-1.12.262}
+    image: spark-incidents/jupyter:${SPARK_VERSION:-3.5.1}
+    hostname: spark-incidents-jupyter
+    depends_on:
+      spark-incidents-worker-1:
+        condition: service_healthy
+      spark-incidents-worker-2:
+        condition: service_healthy
+    environment:
+      <<: *spark-environment
+      SPARK_MASTER_URL: spark://spark-incidents-master:7077
+      SPARK_DRIVER_HOST: spark-incidents-jupyter
+      SPARK_UI_EXTERNAL_BASE_PORT: ${SPARK_DRIVER_UI_PORT_START:-14040}
+      MINIO_ENDPOINT: http://spark-incidents-minio:9000
+      MINIO_BUCKET: spark-lab
+      JUPYTER_TOKEN: ${JUPYTER_TOKEN:-sparkstudent}
+    ports:
+      - "127.0.0.1:${JUPYTER_PORT:-18888}:8888"
+      - "127.0.0.1:${SPARK_DRIVER_UI_PORT_START:-14040}-${SPARK_DRIVER_UI_PORT_END:-14050}:4040-4050"
+    volumes:
+      - ./data:/data:ro
+      - ./workspace:/home/jovyan/work
+      - ./workspace:/workspace
+      - ./scripts:/opt/spark-incidents/scripts:ro
+      - spark-incidents-events:/spark-events
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8888/login >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 15s
+    restart: unless-stopped
+    networks: [spark-incidents-net]
+
+  spark-incidents-minio:
+    profiles: [storage]
+    image: quay.io/minio/minio:RELEASE.2024-01-16T16-07-38Z@sha256:1c5612585daf39752afd4552c6c3b32c154b22ef6a685d5a9d085d950159f92b
+    platform: linux/amd64
+    hostname: spark-incidents-minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-sparkstudent}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-sparkstudent123}
+    command: server /data --console-address ":9001"
+    ports:
+      - "127.0.0.1:${MINIO_API_PORT:-19000}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-19001}:9001"
+    volumes:
+      - spark-incidents-minio-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "mc alias set health http://127.0.0.1:9000 \"$${MINIO_ROOT_USER}\" \"$${MINIO_ROOT_PASSWORD}\" >/dev/null && mc ready health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+    networks: [spark-incidents-net]
+
+  spark-incidents-minio-init:
+    profiles: [storage]
+    image: quay.io/minio/mc:RELEASE.2024-01-13T08-44-48Z@sha256:9e813219cdc8ede4a24254ef94d071b282985b766b3323f493ded84b82ccd177
+    platform: linux/amd64
+    depends_on:
+      spark-incidents-minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-sparkstudent}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-sparkstudent123}
+    volumes:
+      - ./data:/seed:ro
+    entrypoint:
+      - /bin/sh
+      - -lc
+      - |
+        set -eu
+        mc alias set lab http://spark-incidents-minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"
+        mc mb --ignore-existing lab/spark-lab
+        mc mirror --overwrite /seed lab/spark-lab/source
+        echo "MinIO seed is ready"
+    restart: "no"
+    networks: [spark-incidents-net]
+
+  spark-incidents-history:
+    profiles: [postmortem]
+    build: *spark-build
+    image: spark-incidents/runtime:${SPARK_VERSION:-3.5.1}
+    hostname: spark-incidents-history
+    environment:
+      <<: *spark-environment
+      SPARK_HISTORY_OPTS: >-
+        -Dspark.history.fs.logDirectory=file:/spark-events
+        -Dspark.history.ui.port=18080
+        -Dspark.history.fs.update.interval=5s
+    command: ["/opt/spark/sbin/start-history-server.sh"]
+    ports:
+      - "127.0.0.1:${SPARK_HISTORY_UI_PORT:-18091}:18080"
+    volumes:
+      - spark-incidents-events:/spark-events
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:18080 >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 15s
+    restart: unless-stopped
+    networks: [spark-incidents-net]
+
+volumes:
+  spark-incidents-minio-data:
+  spark-incidents-events:
+
+networks:
+  spark-incidents-net:

@@ -1,0 +1,9 @@
+order_id,created_at,status,region,customer_id,amount
+i001,2026-02-01,paid,north,c101,100.00
+i002,2026-02-01,paid,south,c102,120.00
+i002,2026-02-01,paid,south,c102,120.00
+,2026-02-02,new,east,c103,80.00
+i004,2026-02-02,paid,north,c104,220.00
+i005,2026-02-03,cancelled,west,c105,140.00
+i006,2026-02-03,paid,east,c106,95.00
+i007,2026-02-04,refunded,north,c107,180.00
